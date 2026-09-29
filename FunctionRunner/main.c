@@ -1,5 +1,5 @@
 #include <allegro5/allegro.h>
-#include <allegro5/allegro_primitives.h> // ADICIONADO: Necessário para desenhar formas geométricas (o chão e o jogador)
+#include <allegro5/allegro_primitives.h> // ADICIONADO: Necessário para desenhar formas geométricas (o chão e o jogador))
 #include <stdio.h>
 #include <stdbool.h>
 
