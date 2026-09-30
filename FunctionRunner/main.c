@@ -3,6 +3,7 @@
 #include <allegro5/allegro_font.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <math.h>
 
 const int LARGURA = 800;
 const int ALTURA = 600;
@@ -13,6 +14,24 @@ const float FORCA_PULO = -10.0f;
 const float VELOCIDADE = 4.0f;
 const int TAMANHO_JOGADOR = 40;
 const int PISO = 500;
+const float INICIO_RAMPA = 280.0f;
+const float FIM_RAMPA = 560.0f;
+const float PISO_DIREITO = 360.0f;
+
+/* Origem local no inicio do vao; y positivo para cima, 100 px/unidade. */
+float altura_rampa(float x, float a, float b)
+{
+    return PISO - (a * (x - INICIO_RAMPA) + b * 100.0f);
+}
+
+bool obter_chao(float x, bool solida, float a, float b, float* altura)
+{
+    if (x < INICIO_RAMPA) *altura = (float)PISO;
+    else if (x > FIM_RAMPA) *altura = PISO_DIREITO;
+    else if (solida) *altura = altura_rampa(x, a, b);
+    else return false;
+    return true;
+}
 
 typedef struct {
     float x;
@@ -64,7 +83,7 @@ void desenhar_modal(ALLEGRO_FONT* fonte, float a, float b)
     al_draw_text(
         fonte, branco, 400, 380,
         ALLEGRO_ALIGN_CENTRE,
-        "ESC: fechar"
+        "ENTER: construir | ESC: cancelar"
     );
 }
 
@@ -138,7 +157,7 @@ int main(void)
 
     Player jogador;
 
-    jogador.x = (LARGURA - TAMANHO_JOGADOR) / 2.0f;
+    jogador.x = 100.0f;
     jogador.y = 100;
     jogador.vx = 0;
     jogador.vy = 0;
@@ -149,8 +168,11 @@ int main(void)
     bool tecla_A = false;
     bool tecla_D = false;
     bool modal_aberta = false;
+    bool rampa_solida = false;
+    float a_solido = 0.0f;
+    float b_solido = 0.0f;
 
-    float a = 1.0f;
+    float a = 0.0f;
     float b = 0.0f;
 
     double tempo_anterior = al_get_time();
@@ -176,6 +198,12 @@ int main(void)
                 }
                 else if (tecla == ALLEGRO_KEY_DOWN) {
                     b -= 0.1f;
+                }
+                else if (tecla == ALLEGRO_KEY_ENTER) {
+                    a_solido = a;
+                    b_solido = b;
+                    rampa_solida = true;
+                    modal_aberta = false;
                 }
                 else if (tecla == ALLEGRO_KEY_ESCAPE) {
                     modal_aberta = false;
@@ -228,17 +256,41 @@ int main(void)
                     jogador.vx += VELOCIDADE;
                 }
 
-                if (!jogador.no_chao) {
-                    jogador.vy += GRAVIDADE * dt_fator;
-                }
-
+                if (dt_fator > 3.0f) dt_fator = 3.0f;
+                float x_anterior = jogador.x + TAMANHO_JOGADOR / 2.0f;
+                float pes_anteriores = jogador.y + TAMANHO_JOGADOR;
+                bool estava_no_chao = jogador.no_chao;
+                float chao_anterior = 0.0f;
+                bool tinha_chao = obter_chao(x_anterior, rampa_solida,
+                    a_solido, b_solido, &chao_anterior);
+                jogador.vy += GRAVIDADE * dt_fator;
                 jogador.x += jogador.vx * dt_fator;
+                if (jogador.x < 0) jogador.x = 0;
+                if (jogador.x > LARGURA - TAMANHO_JOGADOR)
+                    jogador.x = (float)(LARGURA - TAMANHO_JOGADOR);
                 jogador.y += jogador.vy * dt_fator;
-
-                if (jogador.y + TAMANHO_JOGADOR >= PISO) {
-                    jogador.y = PISO - TAMANHO_JOGADOR;
+                jogador.no_chao = false;
+                float x_pes = jogador.x + TAMANHO_JOGADOR / 2.0f;
+                float chao = 0.0f;
+                if (obter_chao(x_pes, rampa_solida, a_solido, b_solido, &chao)) {
+                    float referencia = tinha_chao ? chao_anterior : chao;
+                    float tolerancia = fabsf(a_solido * (x_pes - x_anterior)) + 1.0f;
+                    bool acompanhar = estava_no_chao && tinha_chao &&
+                        fabsf(chao - chao_anterior) <= tolerancia;
+                    bool aterrissar = pes_anteriores <= referencia + 0.5f &&
+                        pes_anteriores <= chao + tolerancia &&
+                        jogador.y + TAMANHO_JOGADOR >= chao;
+                    if (jogador.vy >= 0 && (acompanhar || aterrissar)) {
+                        jogador.y = chao - TAMANHO_JOGADOR;
+                        jogador.vy = 0;
+                        jogador.no_chao = true;
+                    }
+                }
+                if (jogador.y > ALTURA) {
+                    jogador.x = 100.0f;
+                    jogador.y = 100.0f;
+                    jogador.vx = 0;
                     jogador.vy = 0;
-                    jogador.no_chao = true;
                 }
             }
 
@@ -254,9 +306,24 @@ int main(void)
             al_clear_to_color(al_map_rgb(0, 0, 0));
 
             al_draw_filled_rectangle(
-                0, PISO, LARGURA, ALTURA,
+                0, PISO, INICIO_RAMPA, ALTURA,
                 al_map_rgb(255, 255, 255)
             );
+
+            al_draw_filled_rectangle(FIM_RAMPA, PISO_DIREITO, LARGURA, ALTURA,
+                al_map_rgb(255, 255, 255));
+            if (rampa_solida) {
+                al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, a_solido, b_solido),
+                    FIM_RAMPA, altura_rampa(FIM_RAMPA, a_solido, b_solido),
+                    al_map_rgb(60, 220, 120), 4.0f);
+            }
+            if (modal_aberta) {
+                al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, a, b),
+                    FIM_RAMPA, altura_rampa(FIM_RAMPA, a, b),
+                    al_map_rgb(255, 220, 60), 2.0f);
+            }
+            al_draw_text(fonte, al_map_rgb(255, 255, 255), 12, 12, 0,
+                "A/D: mover | ESPACO: pular | E: projetar rampa");
 
             al_draw_filled_rectangle(
                 jogador.x,
