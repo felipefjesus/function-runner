@@ -1,5 +1,5 @@
 #include <allegro5/allegro.h>
-#include <allegro5/allegro_primitives.h> // ADICIONADO: Necess·rio para desenhar formas geomÈtricas (o ch„o e o jogador))
+#include <allegro5/allegro_primitives.h> // ADICIONADO: Necess√°rio para desenhar formas geom√©tricas (o ch√£o e o jogador))
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -7,14 +7,14 @@ const int LARGURA_TELA = 800;
 const int ALTURA_TELA = 600;
 const double FPS = 60.0;
 
-// ADICIONADO: Constantes para os par‚metros de fÌsica, dimensıes e ch„o
+// Constantes de f√≠sica, dimens√µes e piso
 const float GRAVIDADE = 0.5f;
 const float PULO = -10.0f;
 const float VELOCIDADE_LATERAIS = 4.0f;
 const float TAMANHO_PLAYER = 40.0f;
 const float PISO_Y = 500.0f;
 
-// ADICIONADO: 1. DefiniÁ„o da struct Player com x, y, vx, vy e estado de contacto com o ch„o
+// Defini√ß√£o da struct Player com posi√ß√µes, velocidades e contato com o ch√£o
 typedef struct {
     float x;
     float y;
@@ -24,29 +24,32 @@ typedef struct {
 } Player;
 
 int main(int argc, char** argv) {
+    // 1. Inicializa√ß√£o base do Allegro
     if (!al_init()) {
         printf("Falha ao inicializar o Allegro!\n");
         return -1;
     }
 
-    // ADICIONADO: InicializaÁ„o do mÛdulo de teclado
+    // 2. Inicializa√ß√£o do teclado
     if (!al_install_keyboard()) {
         printf("Falha ao inicializar o teclado!\n");
         return -1;
     }
 
-    // ADICIONADO: InicializaÁ„o do addon de primitivas gr·ficas
+    // 3. Inicializa√ß√£o do addon de primitivas gr√°ficas
     if (!al_init_primitives_addon()) {
         printf("Falha ao inicializar o addon de primitivas!\n");
         return -1;
     }
 
+    // 4. Cria√ß√£o da janela
     ALLEGRO_DISPLAY* janela = al_create_display(LARGURA_TELA, ALTURA_TELA);
     if (!janela) {
         printf("Falha ao criar a janela do Allegro!\n");
         return -1;
     }
 
+    // 5. Configura√ß√£o do timer cravado a 60 FPS
     ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
     if (!timer) {
         printf("Falha ao criar o timer!\n");
@@ -54,6 +57,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // 6. Cria√ß√£o da fila de eventos
     ALLEGRO_EVENT_QUEUE* fila_eventos = al_create_event_queue();
     if (!fila_eventos) {
         printf("Falha ao criar a fila de eventos!\n");
@@ -62,9 +66,9 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // 7. Registro das fontes de eventos
     al_register_event_source(fila_eventos, al_get_display_event_source(janela));
     al_register_event_source(fila_eventos, al_get_timer_event_source(timer));
-    // ADICIONADO: Registo do teclado como fonte de eventos
     al_register_event_source(fila_eventos, al_get_keyboard_event_source());
 
     al_start_timer(timer);
@@ -72,24 +76,29 @@ int main(int argc, char** argv) {
     bool rodando = true;
     bool redesenhar = true;
 
-    // ADICIONADO: InicializaÁ„o da inst‚ncia do jogador
+    // Inicializa√ß√£o da inst√¢ncia do jogador
     Player player = {
         .x = LARGURA_TELA / 2.0f - TAMANHO_PLAYER / 2.0f,
-        .y = 100.0f, // Posicionado no ar para demonstrar a queda inicial
+        .y = 100.0f,
         .vx = 0,
         .vy = 0,
         .no_chao = false
     };
 
-    // ADICIONADO: Controlo de estado das teclas A e D
+    // Controle de estado das teclas A e D
     bool tecla_A = false;
     bool tecla_D = false;
 
+    // Vari√°veis para medi√ß√£o do Delta Time
+    double tempo_anterior = al_get_time();
+    double delta_time = 0.0;
+
+    // Game Loop Principal
     while (rodando) {
         ALLEGRO_EVENT evento;
         al_wait_for_event(fila_eventos, &evento);
 
-        // ADICIONADO: 2. Captura dos eventos de tecla pressionada (A, D, EspaÁo)
+        // Captura de teclas pressionadas (A, D, Espa√ßo)
         if (evento.type == ALLEGRO_EVENT_KEY_DOWN) {
             switch (evento.keyboard.keycode) {
             case ALLEGRO_KEY_A:
@@ -99,7 +108,6 @@ int main(int argc, char** argv) {
                 tecla_D = true;
                 break;
             case ALLEGRO_KEY_SPACE:
-                // SÛ permite saltar se estiver apoiado no ch„o
                 if (player.no_chao) {
                     player.vy = PULO;
                     player.no_chao = false;
@@ -107,7 +115,7 @@ int main(int argc, char** argv) {
                 break;
             }
         }
-        // ADICIONADO: Captura dos eventos de tecla libertada
+        // Captura de teclas liberadas
         else if (evento.type == ALLEGRO_EVENT_KEY_UP) {
             switch (evento.keyboard.keycode) {
             case ALLEGRO_KEY_A:
@@ -118,43 +126,54 @@ int main(int argc, char** argv) {
                 break;
             }
         }
+        // Atualiza√ß√£o da l√≥gica e f√≠sica pelo Timer
         else if (evento.type == ALLEGRO_EVENT_TIMER) {
-            // ADICIONADO: AtualizaÁ„o do vetor de velocidade horizontal consoante as teclas
+            // Medi√ß√£o do tempo decorrido entre os quadros
+            double tempo_atual = al_get_time();
+            delta_time = tempo_atual - tempo_anterior;
+            tempo_anterior = tempo_atual;
+
+            // Fator multiplicador do Delta Time (normalizado em 1.0 para 60 FPS est√°veis)
+            float dt_fator = (float)(delta_time * FPS);
+
+            // Atualiza√ß√£o da velocidade horizontal com base nas teclas
             player.vx = 0;
             if (tecla_A) player.vx -= VELOCIDADE_LATERAIS;
             if (tecla_D) player.vx += VELOCIDADE_LATERAIS;
 
-            // ADICIONADO: 3. AplicaÁ„o da gravidade contÌnua no vetor vy quando no ar
+            // Aplica√ß√£o da gravidade proporcional ao tempo decorrido
             if (!player.no_chao) {
-                player.vy += GRAVIDADE;
+                player.vy += GRAVIDADE * dt_fator;
             }
 
-            // ADICIONADO: AtualizaÁ„o das posiÁıes x e y
-            player.x += player.vx;
-            player.y += player.vy;
+            // Deslocamento aplicando a multiplica√ß√£o do delta time
+            player.x += player.vx * dt_fator;
+            player.y += player.vy * dt_fator;
 
-            // ADICIONADO: 4. Colis„o com o piso fixo da sala para impedir a queda fora da tela
+            // Colis√£o com o ch√£o fixo
             if (player.y + TAMANHO_PLAYER >= PISO_Y) {
-                player.y = PISO_Y - TAMANHO_PLAYER; // Ajusta a posiÁ„o ao nÌvel do ch„o
-                player.vy = 0;                     // Anula a velocidade de queda
-                player.no_chao = true;             // Confirma o contacto com o solo
+                player.y = PISO_Y - TAMANHO_PLAYER;
+                player.vy = 0;
+                player.no_chao = true;
             }
 
             redesenhar = true;
         }
+        // Fechamento da janela
         else if (evento.type == ALLEGRO_EVENT_DISPLAY_CLOSE) {
             rodando = false;
         }
 
+        // Renderiza√ß√£o gr√°fica
         if (redesenhar && al_is_event_queue_empty(fila_eventos)) {
             redesenhar = false;
 
             al_clear_to_color(al_map_rgb(0, 0, 0));
 
-            // ADICIONADO: Desenho do piso fixo na tela
+            // Desenha o ch√£o fixo
             al_draw_filled_rectangle(0, PISO_Y, LARGURA_TELA, ALTURA_TELA, al_map_rgb(250, 250, 250));
 
-            // ADICIONADO: Desenho do ret‚ngulo do jogador
+            // Desenha o jogador
             al_draw_filled_rectangle(
                 player.x,
                 player.y,
@@ -167,6 +186,7 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Libera√ß√£o de recursos ao encerrar
     al_destroy_event_queue(fila_eventos);
     al_destroy_timer(timer);
     al_destroy_display(janela);
