@@ -18,6 +18,10 @@ const float INICIO_RAMPA = 280.0f;
 const float FIM_RAMPA = 560.0f;
 const float PISO_DIREITO = 360.0f;
 
+// Estação de Desenho (Lápis)
+const float LAPIS_X = 250.0f;
+const float RAIO_INTERACAO_LAPIS = 60.0f;
+
 /* Origem local no inicio do vao; y positivo para cima, 100 px/unidade. */
 float altura_rampa(float x, float a, float b)
 {
@@ -41,49 +45,70 @@ typedef struct {
     bool no_chao;
 } Player;
 
+// Renderização do marcador de lápis no chão da plataforma
+void desenhar_lapis(void)
+{
+    // Corpo amarelo do lápis
+    al_draw_filled_rectangle(LAPIS_X - 5, PISO - 30, LAPIS_X + 5, PISO - 6, al_map_rgb(245, 190, 40));
+    // Ponta de madeira
+    al_draw_filled_triangle(LAPIS_X - 5, PISO - 30, LAPIS_X + 5, PISO - 30, LAPIS_X, PISO - 42, al_map_rgb(230, 185, 145));
+    // Grafite da ponta
+    al_draw_filled_triangle(LAPIS_X - 2, PISO - 37, LAPIS_X + 2, PISO - 37, LAPIS_X, PISO - 42, al_map_rgb(40, 40, 40));
+    // Borracha na base
+    al_draw_filled_rectangle(LAPIS_X - 5, PISO - 6, LAPIS_X + 5, PISO, al_map_rgb(220, 80, 80));
+}
+
+// Modal semitransparente na parte superior com os valores embutidos na função
 void desenhar_modal(ALLEGRO_FONT* fonte, float a, float b)
 {
     ALLEGRO_COLOR branco = al_map_rgb(255, 255, 255);
+    ALLEGRO_COLOR amarelo = al_map_rgb(255, 230, 80);
+    ALLEGRO_COLOR cinza_claro = al_map_rgb(205, 205, 215);
 
+    // Fundo semitransparente na parte superior (opacidade ~80%)
     al_draw_filled_rectangle(
-        180, 180, 620, 420,
-        al_map_rgb(35, 35, 45)
+        30, 35, 770, 155,
+        al_map_rgba(20, 20, 32, 205)
+    );
+    // Borda discreta do modal
+    al_draw_rectangle(
+        30, 35, 770, 155,
+        al_map_rgba(80, 120, 200, 220),
+        2.0f
     );
 
     al_draw_text(
-        fonte, branco, 400, 210,
+        fonte, branco, 400, 48,
         ALLEGRO_ALIGN_CENTRE,
-        "Ajuste da funcao"
+        "Ajuste da Funcao (Rampa)"
+    );
+
+    // Exibe os coeficientes diretamente dentro da formula
+    if (b >= 0.0f) {
+        al_draw_textf(
+            fonte, amarelo, 400, 75,
+            ALLEGRO_ALIGN_CENTRE,
+            "y = %.1f * x + %.1f", a, b
+        );
+    }
+    else {
+        al_draw_textf(
+            fonte, amarelo, 400, 75,
+            ALLEGRO_ALIGN_CENTRE,
+            "y = %.1f * x - %.1f", a, -b
+        );
+    }
+
+    al_draw_text(
+        fonte, cinza_claro, 400, 104,
+        ALLEGRO_ALIGN_CENTRE,
+        "Esquerda/Direita: inclina 'a'  |  Cima/Baixo: altura 'b'"
     );
 
     al_draw_text(
-        fonte, branco, 400, 240,
+        fonte, cinza_claro, 400, 126,
         ALLEGRO_ALIGN_CENTRE,
-        "y = a * x + b"
-    );
-
-    al_draw_textf(
-        fonte, branco, 400, 280,
-        ALLEGRO_ALIGN_CENTRE,
-        "a = %.1f", a
-    );
-
-    al_draw_textf(
-        fonte, branco, 400, 310,
-        ALLEGRO_ALIGN_CENTRE,
-        "b = %.1f", b
-    );
-
-    al_draw_text(
-        fonte, branco, 400, 350,
-        ALLEGRO_ALIGN_CENTRE,
-        "Esquerda/direita: a | Cima/baixo: b"
-    );
-
-    al_draw_text(
-        fonte, branco, 400, 380,
-        ALLEGRO_ALIGN_CENTRE,
-        "ENTER: construir | ESC: cancelar"
+        "ENTER: construir rampa  |  ESC: cancelar"
     );
 }
 
@@ -107,14 +132,12 @@ int main(void)
     al_init_font_addon();
 
     ALLEGRO_DISPLAY* janela = al_create_display(LARGURA, ALTURA);
-
     if (janela == NULL) {
         printf("Erro ao criar a janela.\n");
         return 1;
     }
 
     ALLEGRO_TIMER* timer = al_create_timer(1.0 / FPS);
-
     if (timer == NULL) {
         printf("Erro ao criar o timer.\n");
         al_destroy_display(janela);
@@ -122,7 +145,6 @@ int main(void)
     }
 
     ALLEGRO_EVENT_QUEUE* fila_eventos = al_create_event_queue();
-
     if (fila_eventos == NULL) {
         printf("Erro ao criar a fila de eventos.\n");
         al_destroy_timer(timer);
@@ -131,7 +153,6 @@ int main(void)
     }
 
     ALLEGRO_FONT* fonte = al_create_builtin_font();
-
     if (fonte == NULL) {
         printf("Erro ao criar a fonte.\n");
         al_destroy_event_queue(fila_eventos);
@@ -140,25 +161,13 @@ int main(void)
         return 1;
     }
 
-    al_register_event_source(
-        fila_eventos,
-        al_get_display_event_source(janela)
-    );
-
-    al_register_event_source(
-        fila_eventos,
-        al_get_timer_event_source(timer)
-    );
-
-    al_register_event_source(
-        fila_eventos,
-        al_get_keyboard_event_source()
-    );
+    al_register_event_source(fila_eventos, al_get_display_event_source(janela));
+    al_register_event_source(fila_eventos, al_get_timer_event_source(timer));
+    al_register_event_source(fila_eventos, al_get_keyboard_event_source());
 
     Player jogador;
-
     jogador.x = 100.0f;
-    jogador.y = 100;
+    jogador.y = 100.0f;
     jogador.vx = 0;
     jogador.vy = 0;
     jogador.no_chao = false;
@@ -182,6 +191,10 @@ int main(void)
     while (rodando) {
         ALLEGRO_EVENT evento;
         al_wait_for_event(fila_eventos, &evento);
+
+        // Checagem de proximidade com o lápis
+        float centro_x = jogador.x + TAMANHO_JOGADOR / 2.0f;
+        bool perto_do_lapis = (fabsf(centro_x - LAPIS_X) <= RAIO_INTERACAO_LAPIS);
 
         if (evento.type == ALLEGRO_EVENT_KEY_DOWN) {
             int tecla = evento.keyboard.keycode;
@@ -210,7 +223,8 @@ int main(void)
                 }
             }
             else {
-                if (tecla == ALLEGRO_KEY_E) {
+                // A tecla E só aciona o modal se estiver próximo da estação de desenho
+                if (tecla == ALLEGRO_KEY_E && perto_do_lapis) {
                     modal_aberta = true;
                     tecla_A = false;
                     tecla_D = false;
@@ -248,44 +262,44 @@ int main(void)
             if (!modal_aberta) {
                 jogador.vx = 0;
 
-                if (tecla_A) {
-                    jogador.vx -= VELOCIDADE;
-                }
-
-                if (tecla_D) {
-                    jogador.vx += VELOCIDADE;
-                }
+                if (tecla_A) jogador.vx -= VELOCIDADE;
+                if (tecla_D) jogador.vx += VELOCIDADE;
 
                 if (dt_fator > 3.0f) dt_fator = 3.0f;
                 float x_anterior = jogador.x + TAMANHO_JOGADOR / 2.0f;
                 float pes_anteriores = jogador.y + TAMANHO_JOGADOR;
                 bool estava_no_chao = jogador.no_chao;
                 float chao_anterior = 0.0f;
-                bool tinha_chao = obter_chao(x_anterior, rampa_solida,
-                    a_solido, b_solido, &chao_anterior);
+                bool tinha_chao = obter_chao(x_anterior, rampa_solida, a_solido, b_solido, &chao_anterior);
+
                 jogador.vy += GRAVIDADE * dt_fator;
                 jogador.x += jogador.vx * dt_fator;
+
                 if (jogador.x < 0) jogador.x = 0;
-                if (jogador.x > LARGURA - TAMANHO_JOGADOR)
+                if (jogador.x > LARGURA - TAMANHO_JOGADOR) {
                     jogador.x = (float)(LARGURA - TAMANHO_JOGADOR);
+                }
+
                 jogador.y += jogador.vy * dt_fator;
                 jogador.no_chao = false;
+
                 float x_pes = jogador.x + TAMANHO_JOGADOR / 2.0f;
                 float chao = 0.0f;
                 if (obter_chao(x_pes, rampa_solida, a_solido, b_solido, &chao)) {
                     float referencia = tinha_chao ? chao_anterior : chao;
                     float tolerancia = fabsf(a_solido * (x_pes - x_anterior)) + 1.0f;
-                    bool acompanhar = estava_no_chao && tinha_chao &&
-                        fabsf(chao - chao_anterior) <= tolerancia;
+                    bool acompanhar = estava_no_chao && tinha_chao && fabsf(chao - chao_anterior) <= tolerancia;
                     bool aterrissar = pes_anteriores <= referencia + 0.5f &&
                         pes_anteriores <= chao + tolerancia &&
                         jogador.y + TAMANHO_JOGADOR >= chao;
+
                     if (jogador.vy >= 0 && (acompanhar || aterrissar)) {
                         jogador.y = chao - TAMANHO_JOGADOR;
                         jogador.vy = 0;
                         jogador.no_chao = true;
                     }
                 }
+
                 if (jogador.y > ALTURA) {
                     jogador.x = 100.0f;
                     jogador.y = 100.0f;
@@ -305,26 +319,28 @@ int main(void)
 
             al_clear_to_color(al_map_rgb(0, 0, 0));
 
-            al_draw_filled_rectangle(
-                0, PISO, INICIO_RAMPA, ALTURA,
-                al_map_rgb(255, 255, 255)
-            );
+            // Chão esquerdo e chão direito
+            al_draw_filled_rectangle(0, PISO, INICIO_RAMPA, ALTURA, al_map_rgb(255, 255, 255));
+            al_draw_filled_rectangle(FIM_RAMPA, PISO_DIREITO, LARGURA, ALTURA, al_map_rgb(255, 255, 255));
 
-            al_draw_filled_rectangle(FIM_RAMPA, PISO_DIREITO, LARGURA, ALTURA,
-                al_map_rgb(255, 255, 255));
+            // Marcador visual do lápis
+            desenhar_lapis();
+
+            // Rampa consolidada (verde)
             if (rampa_solida) {
                 al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, a_solido, b_solido),
                     FIM_RAMPA, altura_rampa(FIM_RAMPA, a_solido, b_solido),
                     al_map_rgb(60, 220, 120), 4.0f);
             }
+
+            // Prévia da rampa no abismo (amarela)
             if (modal_aberta) {
                 al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, a, b),
                     FIM_RAMPA, altura_rampa(FIM_RAMPA, a, b),
                     al_map_rgb(255, 220, 60), 2.0f);
             }
-            al_draw_text(fonte, al_map_rgb(255, 255, 255), 12, 12, 0,
-                "A/D: mover | ESPACO: pular | E: projetar rampa");
 
+            // Jogador (bloco vermelho)
             al_draw_filled_rectangle(
                 jogador.x,
                 jogador.y,
@@ -333,7 +349,23 @@ int main(void)
                 al_map_rgb(255, 0, 0)
             );
 
-            if (modal_aberta) {
+            // Avisos contextuais na tela
+            float centro_x_render = jogador.x + TAMANHO_JOGADOR / 2.0f;
+            bool perto_render = (fabsf(centro_x_render - LAPIS_X) <= RAIO_INTERACAO_LAPIS);
+
+            if (!modal_aberta) {
+                if (perto_render) {
+                    al_draw_text(fonte, al_map_rgb(255, 230, 80), 12, 12, 0,
+                        "A/D: mover | ESPACO: pular | [E] Projetar Plataforma");
+                    al_draw_text(fonte, al_map_rgb(255, 230, 80), LAPIS_X, PISO - 55, ALLEGRO_ALIGN_CENTRE,
+                        "[E] Projetar");
+                }
+                else {
+                    al_draw_text(fonte, al_map_rgb(255, 255, 255), 12, 12, 0,
+                        "A/D: mover | ESPACO: pular");
+                }
+            }
+            else {
                 desenhar_modal(fonte, a, b);
             }
 
