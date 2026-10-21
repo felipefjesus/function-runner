@@ -11,6 +11,7 @@ const int ALTURA = 600;
 const float FPS = 60.0f;
 
 const float GRAVIDADE = 0.5f;
+
 const float FORCA_PULO = -10.0f;
 const float VELOCIDADE = 4.0f;
 const int TAMANHO_JOGADOR = 40;
@@ -105,7 +106,7 @@ void inicializar_jogo(Jogo* j)
     reiniciar_fase(j);
 }
 
-// PROCESSAMENTO DE ENTRADAS
+// PROCESSAMENTO DE ENTRADAS (TECLADO)
 void processar_tecla_down(Jogo* j, int tecla)
 {
     switch (j->estado) {
@@ -121,7 +122,7 @@ void processar_tecla_down(Jogo* j, int tecla)
 
     case JOGANDO:
         if (j->modal_aberta) {
-            if (tecla == ALLEGRO_KEY_LEFT)       j->a -= 0.1f;
+            if (tecla == ALLEGRO_KEY_LEFT)        j->a -= 0.1f;
             else if (tecla == ALLEGRO_KEY_RIGHT) j->a += 0.1f;
             else if (tecla == ALLEGRO_KEY_UP)    j->b += 0.1f;
             else if (tecla == ALLEGRO_KEY_DOWN)  j->b -= 0.1f;
@@ -184,6 +185,58 @@ void processar_tecla_up(Jogo* j, int tecla)
     }
 }
 
+// PROCESSAMENTO DE CLIQUES DO MOUSE (NOVO)
+void processar_mouse_down(Jogo* j, int x, int y)
+{
+    switch (j->estado) {
+    case MENU:
+        // Clicar na caixa do menu central para iniciar
+        if (x >= 180 && x <= 620 && y >= 160 && y <= 440) {
+            reiniciar_fase(j);
+            j->estado = JOGANDO;
+        }
+        break;
+
+    case JOGANDO:
+        if (j->modal_aberta) {
+            // Botão [-a] (200, 115, 250, 145)
+            if (x >= 200 && x <= 250 && y >= 115 && y <= 145) {
+                j->a -= 0.1f;
+            }
+            // Botão [+a] (260, 115, 310, 145)
+            else if (x >= 260 && x <= 310 && y >= 115 && y <= 145) {
+                j->a += 0.1f;
+            }
+            // Botão [+b] (490, 115, 540, 145)
+            else if (x >= 490 && x <= 540 && y >= 115 && y <= 145) {
+                j->b += 0.1f;
+            }
+            // Botão [-b] (550, 115, 600, 145)
+            else if (x >= 550 && x <= 600 && y >= 115 && y <= 145) {
+                j->b -= 0.1f;
+            }
+            // Botão Confirmar (240, 165, 380, 195)
+            else if (x >= 240 && x <= 380 && y >= 165 && y <= 195) {
+                j->a_solido = j->a;
+                j->b_solido = j->b;
+                j->rampa_solida = true;
+                j->modal_aberta = false;
+            }
+            // Botão Cancelar (400, 165, 540, 195)
+            else if (x >= 400 && x <= 540 && y >= 165 && y <= 195) {
+                j->modal_aberta = false;
+            }
+        }
+        break;
+
+    case GAME_OVER:
+    case VITORIA:
+        reiniciar_fase(j);
+        j->estado = JOGANDO;
+        break;
+    }
+}
+
 // ATUALIZAÇÃO DA FÍSICA E REGRAS DE JOGO 
 void atualizar_fisica(Jogo* j, float dt_fator)
 {
@@ -233,12 +286,10 @@ void atualizar_fisica(Jogo* j, float dt_fator)
         }
     }
 
-    // Queda no abismo dispara GAME_OVER (Cartão 07)
     if (p->y > ALTURA) {
         j->estado = GAME_OVER;
     }
 
-    // Chegada na porta de saída dispara VITORIA (Cartão 07)
     if (p->no_chao &&
         p->x + TAMANHO_JOGADOR >= PORTA_X &&
         p->x <= PORTA_X + PORTA_LARGURA &&
@@ -247,7 +298,7 @@ void atualizar_fisica(Jogo* j, float dt_fator)
     }
 }
 
-// --- 7. FUNÇÕES DE RENDERIZAÇÃO E TELAS ---
+// RENDERIZAÇÃO E TELAS
 void desenhar_lapis(void)
 {
     al_draw_filled_rectangle(LAPIS_X - 5, PISO - 30, LAPIS_X + 5, PISO - 6, al_map_rgb(245, 190, 40));
@@ -258,7 +309,6 @@ void desenhar_lapis(void)
 
 void desenhar_porta(void)
 {
-    // Moldura e interior da porta de saída na plataforma direita
     al_draw_filled_rectangle(PORTA_X, PISO_DIREITO - PORTA_ALTURA, PORTA_X + PORTA_LARGURA, PISO_DIREITO, al_map_rgb(40, 160, 220));
     al_draw_rectangle(PORTA_X, PISO_DIREITO - PORTA_ALTURA, PORTA_X + PORTA_LARGURA, PISO_DIREITO, al_map_rgb(200, 240, 255), 3.0f);
 }
@@ -269,20 +319,38 @@ void desenhar_modal(ALLEGRO_FONT* fonte, float a, float b)
     ALLEGRO_COLOR amarelo = al_map_rgb(255, 230, 80);
     ALLEGRO_COLOR cinza_claro = al_map_rgb(205, 205, 215);
 
-    al_draw_filled_rectangle(30, 35, 770, 155, al_map_rgba(20, 20, 32, 205));
-    al_draw_rectangle(30, 35, 770, 155, al_map_rgba(80, 120, 200, 220), 2.0f);
+    // Caixa de fundo estendida para acomodar os botões de clique do mouse
+    al_draw_filled_rectangle(30, 30, 770, 210, al_map_rgba(20, 20, 32, 230));
+    al_draw_rectangle(30, 30, 770, 210, al_map_rgba(80, 120, 200, 220), 2.0f);
 
-    al_draw_text(fonte, branco, 400, 48, ALLEGRO_ALIGN_CENTRE, "Ajuste da Funcao (Rampa)");
+    al_draw_text(fonte, branco, 400, 40, ALLEGRO_ALIGN_CENTRE, "Ajuste da Funcao (Rampa) - Mouse ou Teclado");
 
     if (b >= 0.0f) {
-        al_draw_textf(fonte, amarelo, 400, 75, ALLEGRO_ALIGN_CENTRE, "y = %.1f * x + %.1f", a, b);
+        al_draw_textf(fonte, amarelo, 400, 68, ALLEGRO_ALIGN_CENTRE, "y = %.1f * x + %.1f", a, b);
     }
     else {
-        al_draw_textf(fonte, amarelo, 400, 75, ALLEGRO_ALIGN_CENTRE, "y = %.1f * x - %.1f", a, -b);
+        al_draw_textf(fonte, amarelo, 400, 68, ALLEGRO_ALIGN_CENTRE, "y = %.1f * x - %.1f", a, -b);
     }
 
-    al_draw_text(fonte, cinza_claro, 400, 104, ALLEGRO_ALIGN_CENTRE, "Esquerda/Direita: inclina 'a'  |  Cima/Baixo: altura 'b'");
-    al_draw_text(fonte, cinza_claro, 400, 126, ALLEGRO_ALIGN_CENTRE, "ENTER: construir rampa  |  ESC: cancelar");
+    // Botões visuais de ajuste de 'a' e 'b'
+    al_draw_filled_rectangle(200, 115, 250, 145, al_map_rgb(60, 70, 90));
+    al_draw_text(fonte, branco, 225, 123, ALLEGRO_ALIGN_CENTRE, "- a");
+
+    al_draw_filled_rectangle(260, 115, 310, 145, al_map_rgb(60, 70, 90));
+    al_draw_text(fonte, branco, 285, 123, ALLEGRO_ALIGN_CENTRE, "+ a");
+
+    al_draw_filled_rectangle(490, 115, 540, 145, al_map_rgb(60, 70, 90));
+    al_draw_text(fonte, branco, 515, 123, ALLEGRO_ALIGN_CENTRE, "+ b");
+
+    al_draw_filled_rectangle(550, 115, 600, 145, al_map_rgb(60, 70, 90));
+    al_draw_text(fonte, branco, 575, 123, ALLEGRO_ALIGN_CENTRE, "- b");
+
+    // Botões de Confirmar e Cancelar
+    al_draw_filled_rectangle(240, 165, 380, 195, al_map_rgb(50, 160, 80));
+    al_draw_text(fonte, branco, 310, 173, ALLEGRO_ALIGN_CENTRE, "Confirmar");
+
+    al_draw_filled_rectangle(400, 165, 540, 195, al_map_rgb(180, 60, 60));
+    al_draw_text(fonte, branco, 470, 173, ALLEGRO_ALIGN_CENTRE, "Cancelar");
 }
 
 void desenhar_tela_menu(ALLEGRO_FONT* fonte)
@@ -295,7 +363,7 @@ void desenhar_tela_menu(ALLEGRO_FONT* fonte)
     al_draw_text(fonte, al_map_rgb(80, 200, 255), 400, 210, ALLEGRO_ALIGN_CENTRE, "FUNCTION RUNNER");
     al_draw_text(fonte, al_map_rgb(200, 200, 210), 400, 240, ALLEGRO_ALIGN_CENTRE, "Graph Parkour - Laboratorio de Funcoes");
 
-    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 310, ALLEGRO_ALIGN_CENTRE, "Pressione [ENTER] ou [ESPACO] para Iniciar");
+    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 310, ALLEGRO_ALIGN_CENTRE, "Clique aqui ou pressione [ENTER] para Iniciar");
     al_draw_text(fonte, al_map_rgb(160, 160, 175), 400, 360, ALLEGRO_ALIGN_CENTRE, "Pressione [ESC] para Sair");
 }
 
@@ -303,29 +371,24 @@ void desenhar_fase(const Jogo* j, ALLEGRO_FONT* fonte)
 {
     al_clear_to_color(al_map_rgb(0, 0, 0));
 
-    // Plataformas esquerda e direita
     al_draw_filled_rectangle(0, PISO, INICIO_RAMPA, ALTURA, al_map_rgb(255, 255, 255));
     al_draw_filled_rectangle(FIM_RAMPA, PISO_DIREITO, LARGURA, ALTURA, al_map_rgb(255, 255, 255));
 
-    // Objetos do cenário
     desenhar_lapis();
     desenhar_porta();
 
-    // Rampa sólida (verde)
     if (j->rampa_solida) {
         al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, j->a_solido, j->b_solido),
             FIM_RAMPA, altura_rampa(FIM_RAMPA, j->a_solido, j->b_solido),
             al_map_rgb(60, 220, 120), 4.0f);
     }
 
-    // Linha guia da rampa (amarela)
     if (j->modal_aberta) {
         al_draw_line(INICIO_RAMPA, altura_rampa(INICIO_RAMPA, j->a, j->b),
             FIM_RAMPA, altura_rampa(FIM_RAMPA, j->a, j->b),
             al_map_rgb(255, 220, 60), 2.0f);
     }
 
-    // Robô / Jogador
     al_draw_filled_rectangle(
         j->jogador.x,
         j->jogador.y,
@@ -334,11 +397,10 @@ void desenhar_fase(const Jogo* j, ALLEGRO_FONT* fonte)
         al_map_rgb(255, 0, 0)
     );
 
-    // Textos de interface ou Modal
     if (!j->modal_aberta) {
         if (jogador_perto_do_lapis(j)) {
             al_draw_text(fonte, al_map_rgb(255, 230, 80), 12, 12, 0,
-                "A/D: mover | ESPACO: pular | R: reiniciar | [E] Projetar Plataforma");
+                "A/D: mover | ESPACO: pular | R: reiniciar | [E] ou Clique: Projetar");
             al_draw_text(fonte, al_map_rgb(255, 230, 80), LAPIS_X, PISO - 55, ALLEGRO_ALIGN_CENTRE,
                 "[E] Projetar");
         }
@@ -361,8 +423,7 @@ void desenhar_tela_game_over(ALLEGRO_FONT* fonte)
 
     al_draw_text(fonte, al_map_rgb(255, 80, 80), 400, 235, ALLEGRO_ALIGN_CENTRE, "GAME OVER");
     al_draw_text(fonte, al_map_rgb(230, 210, 210), 400, 275, ALLEGRO_ALIGN_CENTRE, "O robo caiu no abismo do laboratorio!");
-    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 330, ALLEGRO_ALIGN_CENTRE, "Pressione [R] ou [ENTER] para Reiniciar");
-    al_draw_text(fonte, al_map_rgb(180, 160, 160), 400, 365, ALLEGRO_ALIGN_CENTRE, "Pressione [ESC] para voltar ao Menu");
+    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 330, ALLEGRO_ALIGN_CENTRE, "Clique ou [R] para Reiniciar");
 }
 
 void desenhar_tela_vitoria(ALLEGRO_FONT* fonte)
@@ -374,8 +435,7 @@ void desenhar_tela_vitoria(ALLEGRO_FONT* fonte)
 
     al_draw_text(fonte, al_map_rgb(80, 255, 140), 400, 235, ALLEGRO_ALIGN_CENTRE, "SALA CONCLUIDA!");
     al_draw_text(fonte, al_map_rgb(210, 240, 220), 400, 275, ALLEGRO_ALIGN_CENTRE, "Voce projetou a funcao corretamente!");
-    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 330, ALLEGRO_ALIGN_CENTRE, "Pressione [R] ou [ENTER] para Jogar Novamente");
-    al_draw_text(fonte, al_map_rgb(160, 190, 170), 400, 365, ALLEGRO_ALIGN_CENTRE, "Pressione [ESC] para voltar ao Menu");
+    al_draw_text(fonte, al_map_rgb(255, 230, 80), 400, 330, ALLEGRO_ALIGN_CENTRE, "Clique ou [R] para Jogar Novamente");
 }
 
 void desenhar_jogo(const Jogo* j, ALLEGRO_FONT* fonte)
@@ -398,11 +458,12 @@ void desenhar_jogo(const Jogo* j, ALLEGRO_FONT* fonte)
     al_flip_display();
 }
 
-// --- 8. FUNÇÃO PRINCIPAL (MAIN ENXUTA) ---
+// --- FUNÇÃO PRINCIPAL (MAIN) ---
 int main(void)
 {
     if (!al_init()) return 1;
     if (!al_install_keyboard()) return 1;
+    if (!al_install_mouse()) return 1; // ADICIONADO: Instalar mouse
     if (!al_init_primitives_addon()) return 1;
     al_init_font_addon();
 
@@ -433,6 +494,7 @@ int main(void)
     al_register_event_source(fila_eventos, al_get_display_event_source(janela));
     al_register_event_source(fila_eventos, al_get_timer_event_source(timer));
     al_register_event_source(fila_eventos, al_get_keyboard_event_source());
+    al_register_event_source(fila_eventos, al_get_mouse_event_source()); // ADICIONADO: Registrar fonte de eventos do mouse
 
     Jogo jogo;
     inicializar_jogo(&jogo);
@@ -451,6 +513,9 @@ int main(void)
         }
         else if (evento.type == ALLEGRO_EVENT_KEY_UP) {
             processar_tecla_up(&jogo, evento.keyboard.keycode);
+        }
+        else if (evento.type == ALLEGRO_EVENT_MOUSE_BUTTON_DOWN) { // ADICIONADO: Tratamento de clique do mouse
+            processar_mouse_down(&jogo, evento.mouse.x, evento.mouse.y);
         }
         else if (evento.type == ALLEGRO_EVENT_TIMER) {
             double tempo_atual = al_get_time();
