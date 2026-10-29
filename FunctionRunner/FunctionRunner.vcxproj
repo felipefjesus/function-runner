@@ -131,11 +131,30 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.c" />
+    <ClCompile Include="rampa.c" />
+    <ClCompile Include="lapis.c" />
+    <ClCompile Include="porta.c" />
+    <ClCompile Include="fase.c" />
+    <ClCompile Include="jogador.c" />
+    <ClCompile Include="modal.c" />
+    <ClCompile Include="telas.c" />
+    <ClCompile Include="jogo.c" />
   </ItemGroup>
 	<PropertyGroup>
 		<Allegro_AddonPrimitives>true</Allegro_AddonPrimitives>
 		<Allegro_AddonFont>true</Allegro_AddonFont>
 	</PropertyGroup>
+  <ItemGroup>
+    <ClInclude Include="configuracao.h" />
+    <ClInclude Include="jogador.h" />
+    <ClInclude Include="rampa.h" />
+    <ClInclude Include="lapis.h" />
+    <ClInclude Include="porta.h" />
+    <ClInclude Include="fase.h" />
+    <ClInclude Include="modal.h" />
+    <ClInclude Include="telas.h" />
+    <ClInclude Include="jogo.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\AllegroDeps.1.16.0\build\native\AllegroDeps.targets" Condition="Exists('packages\AllegroDeps.1.16.0\build\native\AllegroDeps.targets')" />
